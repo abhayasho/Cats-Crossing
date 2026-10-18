@@ -1,79 +1,91 @@
-# Cat's Crossing
+<p align="center">
+  <img src="assets/banner.png" alt="Cat's Crossing: a Frogger-style Game Boy Advance game in C" width="100%">
+</p>
 
-The whole point of this game is to move the cat(you) to the other side and to avoid the water and cars. There are logs you can jump on. 
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Game%20Boy%20Advance-6A4FB6" alt="Game Boy Advance">
+  <img src="https://img.shields.io/badge/language-C-A8B9CC?logo=c&logoColor=white" alt="C">
+  <img src="https://img.shields.io/badge/video-Mode%203-orange" alt="Mode 3">
+</p>
 
----
+**Cat's Crossing** is a Frogger-inspired Game Boy Advance game written in C. Guide the cat from the bottom of the screen to the green finish line: dodge the cars on the roads and hop across the river on the logs. Every crossing scores points and brings a new, randomized level, and it keeps going until you run out of lives.
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/title.png" alt="Title screen" width="100%"><br><sub>Title screen</sub></td>
+    <td align="center"><img src="assets/riding-logs.png" alt="The cat riding a log across the river" width="100%"><br><sub>Riding the logs</sub></td>
+    <td align="center"><img src="assets/traffic.png" alt="The cat crossing between cars" width="100%"><br><sub>Dodging traffic</sub></td>
+  </tr>
+</table>
+
+<sub>Frames drawn by the game's own C code at the GBA's 240×160 resolution, scaled up 3×.</sub>
+
+## How to play
+
+- **Goal:** get the cat from the start area at the bottom to the green **finish** zone at the top.
+- **Roads (gray):** cars slide in from the sides. One hit costs a life.
+- **Rivers (blue):** the water is deadly, so ride the logs across.
+- **Lives:** you start with 3, shown as yellow squares in the corner. Losing one sends you back to the start of the same level; your score stays.
+- **Scoring:** each crossing is worth **100 points** and moves you to a new level with a different layout of cars and logs.
+
+### You lose a life when you…
+
+- touch a car;
+- land in the water instead of on a log;
+- ride a log off the left or right edge of the screen.
 
 ## Controls
 
 | Button | Action |
-|--------|--------|
-| **D-Pad Up** | Move up one lane |
-| **D-Pad Down** | Move down one lane |
-| **D-Pad Left** | Move left |
-| **D-Pad Right** | Move right |
-| **Start** | Start game (from title) / Pause (during game) / Return to title (from Game Over or You Win) |
+| --- | --- |
+| **D-Pad Up / Down** | Move one lane up or down |
+| **D-Pad Left / Right** | Step left or right |
+| **Start** | Start the game · pause / resume · return to the title from Game Over |
 
-Movement is one step at a time (grid-based). The cat does not use A, B, or shoulder buttons.
+Movement is grid-based, one step per press. A, B and the shoulder buttons aren't used.
 
----
+## Game flow
 
-## How to Play
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Start
+    Start --> Game: Start
+    Game --> Pause: Start
+    Pause --> Game: Start
+    Game --> Lose: 0 lives
+    Lose --> Start: Start
+```
 
-- **Goal:** Get the cat from the bottom (starting area) to the green finish zone at the top.
-- **Roads (gray/dark gray):** There are moving cars that come in from the side. Make sure to not get hit by them. 
-- **Water (blue):** There are rivers with logs on them, make sure to jump on the logs and avoid the water.
-- **Lives:** You start with 3 lives which are the yellow squares. Losing a life sending you back to the beginnning of the same level, the score stays the same.
-- **Scoring:** Reaching the finish gives you 100 points and advances you to the next level. Cars and logs are different on the levels and it keeps going until you die. 
+There's also a **Win** screen in the code that returns to the title, but levels repeat endlessly, so in practice a run ends at **Game Over**. The Game Over screen shows how many levels you cleared and your final score.
 
----
+## Under the hood
 
-## State Machine (Screens & Flow)
+- **Mode 3 bitmap graphics.** Everything is drawn straight into the 240×160, 15-bit-color framebuffer.
+- **DMA fills.** Rectangles (lanes, cars, logs, the cat) are drawn one row at a time with DMA channel 3, using a fixed source and an incrementing destination.
+- **Dirty-rectangle redraws.** Only the areas that moved are erased and redrawn each frame, so the full background is rarely repainted.
+- **State machine.** Start → Game ⇄ Pause → Lose, driven by `BUTTON_PRESSED` edge detection on the key register.
+- **Seeded RNG.** A small deterministic random number generator places the cars and logs on each new level.
+- **Analog sound.** Sound effects use the GBA's Game Boy-compatible tone channels.
+- **Custom font.** A 6×8 bitmap font renders the score, the HUD and the menu text.
 
-1. **START (Title screen)**  
-   - Shows “CAT'S CROSSING” and “PRESS START.”  
-   - **Start** → start a new game.
+## Known issues
 
-2. **GAME (Playing)**  
-   - You move the cat and try to reach the goal.  
-   - **Start** → **PAUSE**.  
-   - If you lose all lives then its (Game Over).
+- Levels are randomized, so cars and logs can bunch up and some runs feel harder than others.
+- Two log rows can occasionally move in the same direction at the same speed, which can make a crossing impossible.
+- Stepping from a log into the water sometimes doesn't cost a life.
 
-3. **PAUSE**  
-   - Shows “PAUSED.”  
-   - **Start** → resume **GAME**.
+## Building
 
-4. **WIN**  
-   - Shows “YOU WIN” and “PRESS START.”  
-   - **Start** → back to **START** (title).
+This was built for a CS course with the course's GBA toolchain: run the provided build task (a Docker-based GBA compiler) to produce a `.gba` ROM, then open it in an emulator such as [mGBA](https://mgba.io).
 
-5. **LOSE (Game Over)**  
-   - Red screen, “GAME OVER,” levels cleared, and final score.  
-   - **Start** → back to **START** (title).
+## Project files
 
-So: **START → (Start) → GAME ⇄ (Start) PAUSE**, and from **GAME** you can go to **LOSE** (0 lives) or, if implemented, **WIN**. From **WIN** or **LOSE**, **Start** returns you to **START**.
-
----
-
-## How You Win / How You Lose
-
-- **Winning (per level):** To win you reach the green zone and advance to the next level. It keeps going until you die. Try to increase your score. 
-- **Losing a life:**  
-  - Touch a car on the road.  
-  - Be in the water and not on a logg.  
-  - Be on a log that moves off the left or right side of the screen so the cat goes off-screen.
-
-
----
-
-## Bugs or Known Issues. 
-
-- Level layout is randomized when you clear a level; cars and logs can be close together, so some runs may feel harder than others.
-- Sometimes logs can be going in the same direction at the same velocity which means you can't progress
-- Sometimes when you step on a log and step in the water, you don't die. 
-
----
-
-## Building & Running
-
-Build and Run using the same method as previous homeworks. 
+| File | What's inside |
+| --- | --- |
+| `main.c` | Game loop and state machine (start, game, pause, win, lose) |
+| `game.c` / `game.h` | Lanes, cars, logs, the cat, collisions, scoring and levels |
+| `gba.c` / `gba.h` | Registers, Mode 3 drawing helpers, DMA and input |
+| `font.c` / `font.h` | 6×8 bitmap font |
+| `analogSound.c` / `analogSound.h` | Tone channels for the sound effects |
+| `print.c` / `print.h` | mGBA debug logging |
